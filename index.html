@@ -1,0 +1,1137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="빔 스플리터 양자 간섭과 후선택으로 만드는 광자 편광 얽힘의 성공 확률과 품질을 변인별로 계산하고 가상 실험으로 비교하는 시뮬레이터">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23141617'/%3E%3Cpath d='M2 16H30M16 2V30' stroke='%23DB1F2A' stroke-width='4'/%3E%3Crect x='10' y='10' width='12' height='12' fill='%23E6F3F8'/%3E%3Cpath d='M10 10L22 22' stroke='%23141617' stroke-width='1.5'/%3E%3C/svg%3E">
+<title>광자 얽힘 후선택 시뮬레이터</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gothic+A1:wght@400;500;700;900&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+html { color-scheme: light dark; }
+body { margin: 0; }
+[hidden] { display: none !important; }
+/* Layout: 광학 테이블을 위에서 본 실험 장치와 계수기가 한 덩어리로 맨 위에 놓이고,
+   그 아래에 선택한 부품의 조절 손잡이, 이어서 그래프와 가상 실험이 온다. */
+:root {
+  --bg: #F3F4F1;
+  --raise: #FFFFFF;
+  --ink: #141617;
+  --ink-2: #454B4F;
+  --muted: #6F767A;
+  --grid: #DDE0DC;
+  --axis: #AEB4B1;
+  --beam: #DB1F2A;
+  --beam-l: 49%;
+  --mark: #F2B400;
+  --table: #C6CBCF;
+  --table-edge: #9BA2A8;
+  --hole: #8B9299;
+  --table-ink: #1E2225;
+  --part: #1C1F22;
+  --part-edge: #000000;
+  --glass: #E6F3F8;
+  --pulse: #FFFFFF;
+  --panel: #17191B;
+  --panel-line: #33383B;
+  --panel-ink: #F2EFE6;
+  --panel-muted: #A2A8AB;
+  --lamp-on: #46D97E;
+  --lamp-off: #3F4447;
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s3: #1baf7a;
+  --s4: #6250d6;
+  --font-text: "Gothic A1", "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", system-ui, sans-serif;
+  --font-data: "Martian Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121415; --raise: #202426; --ink: #ECEDEA; --ink-2: #C0C5C6; --muted: #8D9396;
+    --grid: #25292B; --axis: #41474A;
+    --beam: #FF4046; --beam-l: 60%; --mark: #FFC928;
+    --table: #1D2022; --table-edge: #000000; --hole: #06070A; --table-ink: #D0D5D7;
+    --part: #3B4145; --part-edge: #6A7176; --glass: #5F8796; --pulse: #FFFFFF;
+    --panel: #060707; --panel-line: #2A2E30; --panel-ink: #F2EFE6; --panel-muted: #979DA0;
+    --lamp-on: #46D97E; --lamp-off: #34383A;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #9085e9;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121415; --raise: #202426; --ink: #ECEDEA; --ink-2: #C0C5C6; --muted: #8D9396;
+  --grid: #25292B; --axis: #41474A;
+  --beam: #FF4046; --beam-l: 60%; --mark: #FFC928;
+  --table: #1D2022; --table-edge: #000000; --hole: #06070A; --table-ink: #D0D5D7;
+  --part: #3B4145; --part-edge: #6A7176; --glass: #5F8796; --pulse: #FFFFFF;
+  --panel: #060707; --panel-line: #2A2E30; --panel-ink: #F2EFE6; --panel-muted: #979DA0;
+  --lamp-on: #46D97E; --lamp-off: #34383A;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #9085e9;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-text); font-size: 15px; line-height: 1.6; word-break: keep-all; overflow-wrap: break-word; }
+.wrap {
+  max-width: 1200px; margin: 0 auto; padding-block: 36px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3, p, dl, dd, ul { margin: 0; }
+ul { padding: 0; list-style: none; }
+.num { font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+
+/* 머리말 */
+.mast { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px 48px; align-items: end; margin-bottom: 28px; }
+@media (min-width: 900px) { .mast { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); } }
+.kicker { font-family: var(--font-data); font-size: 11.5px; letter-spacing: 0.02em; color: var(--muted); margin-bottom: 10px; }
+h1 { font-size: clamp(30px, 5.2vw, 56px); font-weight: 900; line-height: 1.08; letter-spacing: -0.035em; text-wrap: balance; }
+.lede { color: var(--ink-2); max-width: 46ch; font-size: 15px; }
+
+/* 실험 장치와 계수기 */
+.rig { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--table-edge); }
+@media (min-width: 900px) { .rig { grid-template-columns: minmax(0, 1fr) 292px; } }
+.bench { background: var(--table); overflow-x: auto; min-width: 0; }
+.bench svg { display: block; width: 100%; min-width: 620px; height: auto; }
+.bench .table { fill: var(--table); }
+.bench .hole { fill: var(--hole); }
+.bench .cable { fill: none; stroke: var(--part); stroke-width: 3; stroke-linecap: round; }
+.bench .part { fill: var(--part); stroke: var(--part-edge); stroke-width: 1; }
+.bench .glass { fill: var(--glass); fill-opacity: 0.8; stroke: var(--part); stroke-width: 1.5; }
+.bench .coat { stroke: var(--part); stroke-width: 1.5; }
+.bench .ring { fill: none; stroke: var(--mark); stroke-width: 3; visibility: hidden; }
+.bench .on .ring { visibility: visible; }
+.bench .hit { cursor: pointer; }
+.bench .grab { fill: transparent; stroke: transparent; }
+.bench .guide { stroke: var(--table-ink); stroke-width: 1; stroke-dasharray: 3 4; opacity: 0.45; }
+.bench #beams line { stroke: var(--beam); stroke-linecap: butt; }
+.bench #pulses ellipse { fill: var(--pulse); }
+.bench text { font-family: var(--font-text); font-size: 11.5px; font-weight: 700; fill: var(--table-ink); paint-order: stroke; stroke: var(--table); stroke-width: 5px; stroke-linejoin: round; }
+.bench text.live { font-family: var(--font-data); font-size: 10px; font-weight: 400; }
+
+.counter { background: var(--panel); color: var(--panel-ink); padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 16px; }
+.plate { font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; color: var(--panel-muted); display: flex; justify-content: space-between; align-items: center; }
+.plate i { width: 7px; height: 7px; border-radius: 50%; background: var(--beam); }
+.readout { display: flex; flex-direction: column; gap: 2px; }
+.readout .lab { font-size: 12.5px; font-weight: 500; color: var(--panel-muted); }
+.readout .val { font-family: var(--font-data); font-weight: 500; font-size: 21px; line-height: 1.25; letter-spacing: -0.04em; }
+.readout.main { padding-bottom: 16px; border-bottom: 1px solid var(--panel-line); }
+.readout.main .val { font-size: 46px; line-height: 1.1; letter-spacing: -0.06em; }
+.readout .sub { font-size: 12px; color: var(--panel-muted); }
+.trio { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--panel-line); }
+.lamps { display: flex; flex-direction: column; gap: 9px; }
+.lamps li { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500; color: var(--panel-muted); }
+.lamps i { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--lamp-off); }
+.lamps li.lit { color: var(--panel-ink); }
+.lamps li.lit i { background: var(--lamp-on); box-shadow: 0 0 8px var(--lamp-on); }
+
+/* 조절 손잡이 */
+.knobs { margin-top: 0; border: 1px solid var(--ink); border-top: 0; }
+.knob-head { display: flex; flex-wrap: wrap; align-items: stretch; justify-content: space-between; border-bottom: 1px solid var(--ink); }
+.tabs { display: flex; flex-wrap: wrap; }
+.tab {
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); background: none; border: 0;
+  border-right: 1px solid var(--grid); padding: 12px 16px 11px; cursor: pointer; display: flex; align-items: center; gap: 7px;
+}
+.tab .dot { width: 6px; height: 6px; border-radius: 50%; background: transparent; }
+.tab.mod .dot { background: var(--beam); }
+.tab:hover { color: var(--ink); }
+.tab[aria-selected="true"] { color: var(--bg); background: var(--ink); }
+.presets { display: flex; align-items: center; gap: 4px; padding: 6px 10px; }
+.link { font: inherit; font-size: 13px; font-weight: 500; color: var(--ink-2); background: none; border: 0; padding: 6px 8px; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--axis); }
+.link:hover { color: var(--beam); text-decoration-color: var(--beam); }
+.knob-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 22px 32px; padding: 20px 20px 22px; }
+.knob { display: flex; flex-direction: column; min-width: 0; }
+.knob label { font-size: 13px; font-weight: 700; }
+.knob output { font-family: var(--font-data); font-size: 19px; font-weight: 500; letter-spacing: -0.05em; line-height: 1.5; white-space: nowrap; }
+.knob small { font-size: 12px; color: var(--muted); line-height: 1.45; }
+input[type="range"] { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; margin: 0; background: transparent; cursor: pointer; }
+input[type="range"]::-webkit-slider-runnable-track { height: 2px; background: var(--ink); }
+input[type="range"]::-moz-range-track { height: 2px; background: var(--ink); }
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; width: 13px; height: 24px; margin-top: -11px; border: 0; border-radius: 1px;
+  background: linear-gradient(90deg, var(--ink) 0 5px, var(--beam) 5px 8px, var(--ink) 8px);
+}
+input[type="range"]::-moz-range-thumb {
+  width: 13px; height: 24px; border: 0; border-radius: 1px;
+  background: linear-gradient(90deg, var(--ink) 0 5px, var(--beam) 5px 8px, var(--ink) 8px);
+}
+button:focus-visible, select:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+
+/* 가시도 사슬 */
+.chain { display: grid; grid-template-columns: repeat(auto-fit, minmax(104px, 1fr)); border-top: 1px solid var(--grid); }
+.chain div { padding: 12px 14px 14px; border-right: 1px solid var(--grid); display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.chain dt { font-size: 12px; color: var(--muted); font-weight: 500; }
+.chain dd { font-family: var(--font-data); font-size: 14px; letter-spacing: -0.04em; }
+.chain .bar { height: 3px; background: var(--grid); margin-top: 4px; }
+.chain .bar i { display: block; height: 3px; background: var(--ink); }
+.chain .total { background: var(--ink); color: var(--bg); }
+.chain .total dt { color: var(--bg); opacity: 0.75; }
+.chain .total .bar { background: var(--ink-2); }
+.chain .total .bar i { background: var(--beam); }
+
+/* 본문 구획 */
+.block { margin-top: 64px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px 48px; }
+@media (min-width: 900px) { .block { grid-template-columns: 250px minmax(0, 1fr); } }
+.block > header { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.block > div { min-width: 0; }
+h2 { font-size: 26px; font-weight: 900; line-height: 1.2; letter-spacing: -0.03em; text-wrap: balance; }
+h3 { font-size: 13px; font-weight: 700; }
+.aside { font-size: 13.5px; color: var(--ink-2); }
+select {
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); background: var(--bg);
+  border: 2px solid var(--ink); border-radius: 0; padding: 7px 8px; max-width: 100%;
+}
+.field { display: flex; flex-direction: column; gap: 5px; font-size: 12px; font-weight: 700; color: var(--muted); }
+.btn { font: inherit; font-size: 14px; font-weight: 700; color: var(--bg); background: var(--ink); border: 2px solid var(--ink); border-radius: 0; padding: 8px 14px; cursor: pointer; }
+.btn.ghost { color: var(--ink); background: transparent; }
+.btn:hover { background: var(--beam); border-color: var(--beam); color: #FFFFFF; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+
+/* 그래프 */
+.legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; font-weight: 500; color: var(--ink-2); margin-bottom: 4px; }
+.legend span { display: inline-flex; align-items: center; gap: 7px; }
+.legend .ln { width: 18px; height: 0; border-top: 2px solid; }
+.legend .pt { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-2); }
+.chart { position: relative; width: 100%; }
+.chart svg { display: block; width: 100%; overflow: visible; }
+.chart text { font-family: var(--font-text); font-size: 11.5px; font-weight: 500; fill: var(--muted); }
+.chart text.tick { font-family: var(--font-data); font-size: 10px; font-weight: 400; }
+.chart text.lab { fill: var(--ink); font-weight: 700; }
+.chart-cap { font-size: 13px; font-weight: 700; margin: 22px 0 4px; }
+.tip { position: absolute; top: 6px; pointer-events: none; z-index: 2; background: var(--raise); border: 1px solid var(--ink); padding: 7px 10px; font-size: 12px; min-width: 140px; }
+.tip .tx { color: var(--muted); margin-bottom: 3px; }
+.tip .tr { display: flex; align-items: center; gap: 7px; }
+.tip .tr b { font-family: var(--font-data); font-weight: 500; font-size: 11.5px; margin-left: auto; padding-left: 12px; }
+.tip .tr .ln { width: 10px; border-top: 2px solid; }
+.tip .tr span { color: var(--ink-2); }
+
+/* 표 */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+th, td { padding: 7px 12px 7px 0; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 700; font-size: 12px; color: var(--muted); border-bottom: 2px solid var(--ink); }
+th:first-child, td:first-child { text-align: left; }
+td { font-family: var(--font-data); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+td:first-child { font-family: var(--font-text); font-size: 13px; font-weight: 500; }
+details summary { cursor: pointer; font-size: 13px; font-weight: 700; margin-top: 18px; text-decoration: underline; text-underline-offset: 3px; }
+details > div { margin-top: 12px; }
+.row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
+.status { font-size: 13px; color: var(--muted); margin: 12px 0 6px; min-height: 1.6em; }
+
+/* 모델 */
+.model { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 28px 40px; }
+.model > div { min-width: 0; }
+.model ul { margin-top: 10px; display: flex; flex-direction: column; gap: 9px; font-size: 13.5px; color: var(--ink-2); }
+.model li { padding-left: 14px; text-indent: -14px; }
+.model li::before { content: "·"; display: inline-block; width: 14px; text-indent: 0; font-weight: 900; color: var(--ink); }
+.eq { font-family: var(--font-data); font-size: 11px; letter-spacing: -0.03em; line-height: 2.1; margin-top: 10px; padding: 10px 0; border-top: 2px solid var(--ink); border-bottom: 1px solid var(--grid); overflow-x: auto; white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<main class="wrap">
+  <header class="mast">
+    <div>
+      <p class="kicker">810 nm · H/V 편광 · 빔 스플리터 · 동시계수 후선택</p>
+      <h1>광자 얽힘 후선택 시뮬레이터</h1>
+    </div>
+    <p class="lede">H 편광 광자와 V 편광 광자를 빔 스플리터에서 만나게 하고, 두 검출기가 동시에 울린 경우만 골라 얽힘 상태 |Ψ⁻⟩를 만듭니다. 장치의 부품을 누르면 그 부품의 조절 손잡이가 아래에 나옵니다.</p>
+  </header>
+
+  <section class="rig" aria-label="실험 장치와 현재 결과">
+    <div class="bench" id="bench"></div>
+    <div class="counter">
+      <p class="plate">동시계수기 <i></i></p>
+      <div class="readout main"><span class="lab">성공 확률 P</span><span class="val" id="t-P">–</span><span class="sub" id="t-sub">광자쌍 1회 입사당 동시계수</span></div>
+      <div class="trio">
+        <div class="readout"><span class="lab">충실도 F</span><span class="val" id="t-F">–</span></div>
+        <div class="readout"><span class="lab">동시성 C</span><span class="val" id="t-C">–</span></div>
+        <div class="readout"><span class="lab">CHSH S</span><span class="val" id="t-S">–</span></div>
+      </div>
+      <ul class="lamps" id="lamps"></ul>
+    </div>
+  </section>
+
+  <section class="knobs" aria-label="조작 변인">
+    <div class="knob-head">
+      <div class="tabs" role="tablist" id="tabs"></div>
+      <div class="presets">
+        <button type="button" class="link" id="preset-real">현실적 조건 예시</button>
+        <button type="button" class="link" id="preset-spdc">다중 쌍 포함 예시</button>
+        <button type="button" class="link" id="preset-ideal">이상적 조건</button>
+      </div>
+    </div>
+    <div id="panels"></div>
+    <dl class="chain" id="chain" aria-label="간섭 가시도가 줄어드는 단계"></dl>
+  </section>
+
+  <section class="block" aria-label="변인 스윕 그래프">
+    <header>
+      <h2>한 변인만 움직였을 때</h2>
+      <p class="aside">나머지 변인은 위에서 맞춘 값으로 고정됩니다. 점선은 현재 손잡이 위치입니다.</p>
+      <label class="field" for="sweep-var">가로축 변인 <select id="sweep-var"></select></label>
+    </header>
+    <div>
+      <div class="legend" id="legend-1"></div>
+      <div class="chart" id="chart-1"></div>
+      <p class="chart-cap">CHSH 값 S</p>
+      <div class="chart" id="chart-2"></div>
+      <details>
+        <summary>그래프 데이터 표</summary>
+        <div>
+          <div class="row"><button type="button" class="btn ghost" id="copy-table">표 복사</button><span class="aside" id="copy-status">엑셀이나 한글에 붙여 넣을 수 있습니다.</span></div>
+          <div class="scroll" style="margin-top:12px"><table id="sweep-table"></table></div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="block" aria-label="가상 실험">
+    <header>
+      <h2>가상 실험</h2>
+      <p class="aside">광자쌍을 하나씩 무작위로 보내 손실, 빔 스플리터 분기, 위상 요동, 암계수를 매번 추첨하고 검출기 클릭을 셉니다. 실제 실험처럼 통계 오차가 생깁니다.</p>
+    </header>
+    <div>
+      <div class="row">
+        <label class="field" for="mc-n">측정 설정당 시행 횟수
+          <select id="mc-n">
+            <option value="1000">1천 회</option>
+            <option value="10000" selected>1만 회</option>
+            <option value="100000">10만 회</option>
+            <option value="1000000">100만 회</option>
+          </select>
+        </label>
+        <button type="button" class="btn" id="mc-run">현재 설정으로 실험</button>
+        <button type="button" class="btn ghost" id="mc-sweep">가로축 전체 구간 실험 (21개 지점)</button>
+      </div>
+      <p class="status" id="mc-status"></p>
+      <div class="scroll"><table id="mc-table"></table></div>
+      <p class="aside" style="margin-top:14px; max-width:68ch">측정 설정은 7가지입니다. 충실도용 3가지(H/V, 대각 D/A, 원편광 R/L)와 CHSH용 4가지 각도 조합. 구간 실험 결과는 위 그래프에 점과 오차 막대(±1σ)로 겹쳐 그려지며, 설정당 최대 10만 회로 제한됩니다.</p>
+    </div>
+  </section>
+
+  <section class="block" aria-label="모델과 가정">
+    <header>
+      <h2>모델과 가정</h2>
+      <p class="aside">위 결과가 어떤 식과 전제에서 나오는지 정리했습니다.</p>
+    </header>
+    <div class="model">
+      <div>
+        <h3>계산식</h3>
+        <div class="eq">
+          T = 1 − R, &nbsp;η = 1 − 손실률<br>
+          |ψ⟩ ∝ T·|H⟩<sub>c</sub>|V⟩<sub>d</sub> − R·e<sup>iφ</sup>·|V⟩<sub>c</sub>|H⟩<sub>d</sub><br>
+          V<sub>시간</sub> = exp(−σ<sub>ω</sub>²Δt²), &nbsp;V<sub>파장</sub> = exp(−Δλ²/4σ<sub>λ</sub>²)<br>
+          V<sub>위치</sub> = exp(−2Δx²/(w₁² + w₂²))<br>
+          V<sub>방향</sub> = exp(−k²Δθ²·w₁²w₂²/2(w₁² + w₂²)), &nbsp;k = 2π/λ<br>
+          V<sub>폭</sub> = (2w₁w₂/(w₁² + w₂²))²<br>
+          V = (1 − D)·V<sub>시간</sub>·V<sub>파장</sub>·V<sub>위치</sub>·V<sub>방향</sub>·V<sub>폭</sub><br>
+          κ = V·exp(−σ<sub>φ</sub>²/2)<br>
+          P<sub>신호</sub> = η²(T² + R²)(1 − p<sub>d</sub>)²<br>
+          P<sub>우연</sub> = 4η(1−η)p<sub>d</sub>(1−p<sub>d</sub>)² + 4(1−η)²p<sub>d</sub>²(1−p<sub>d</sub>)²<br>
+          w = P<sub>신호</sub> / (P<sub>신호</sub> + P<sub>우연</sub>), &nbsp;q = κ·TR/(T² + R²)<br>
+          F = w(½ + q·cos φ₀) + (1 − w)/4<br>
+          C = max(0, 2wq − (1 − w)/2)<br>
+          S = √2·w·(1 + 2q·cos φ₀)<br>
+          μ &gt; 0: p<sub>n</sub> = μ<sup>n</sup>/(1 + μ)<sup>n+1</sup>, &nbsp;n ≤ 3<br>
+          P<sub>펄스</sub> = Σ p<sub>n</sub>·P<sub>n</sub>, &nbsp;P = P<sub>펄스</sub>·(1 + μ)/μ
+        </div>
+      </div>
+      <div>
+        <h3>가정</h3>
+        <ul>
+          <li>μ = 0이면 매번 정확히 한 쌍만 나오는 이상적인 광원입니다. μ &gt; 0이면 펄스마다 나오는 쌍의 수가 열적 분포를 따르고, 3쌍까지 계산합니다.</li>
+          <li>여러 쌍이 나온 경우는 위 식 대신 검출기별 광자 수 분포를 직접 계산합니다. 검출기는 광자 수를 세지 못하고, 각 출력에서 검출기 하나만 울린 경우를 성공으로 셉니다.</li>
+          <li>μ &gt; 0일 때 성공 확률 P는 광자쌍이 나온 펄스 기준으로 환산한 값이고, 동시성 C는 측정 상관값으로 되짚어 구한 두 큐비트 상태의 값입니다.</li>
+          <li>광자는 중심 파장 810 nm의 가우시안 스펙트럼을 가지며, 검출기는 파동 묶음보다 느려 시간 차를 구분하지 못합니다.</li>
+          <li>두 빔은 허리가 빔 스플리터에 놓인 가우시안 빔이고 파면 곡률 차이는 없습니다. Δx와 Δθ는 출력에서 본 두 빔의 상대적인 어긋남입니다.</li>
+          <li>검출기는 출력 빔 전체를 받아 공간 모양을 거르지 않습니다. 단일 모드 광섬유로 받는 실험이라면 공간 어긋남은 품질 저하 대신 손실로 나타납니다.</li>
+          <li>손실은 편광과 무관하고 두 광자에 똑같이 적용됩니다. 광원에서 검출기까지의 경로 손실과 검출 효율을 모두 손실률 하나에 포함합니다.</li>
+          <li>두 광자가 같은 출력으로 함께 나간 경우는 실패로 처리합니다.</li>
+          <li>암계수가 만든 우연 동시계수는 상관 없는 잡음으로 취급합니다. 동시성 C는 이 부분에서 근사값입니다.</li>
+          <li>위상 변인은 두 출력 경로에서 H와 V 편광 사이에 생기는 상대 위상입니다. 단일 광자의 경로 길이 위상 자체는 결과에 영향을 주지 않습니다.</li>
+          <li>장치 그림의 어긋남, 빔 굵기, 색 변화는 보기 쉽게 과장해서 그렸습니다.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>탐구에 쓸 수 있는 관찰</h3>
+        <ul>
+          <li>성공 확률 P를 바꾸는 변인은 반사율과 손실뿐입니다. 시간 차, 파장 차, 공간 어긋남, 구별 가능성, 위상은 P를 그대로 두고 얽힘의 품질(F, C, S)만 낮춥니다.</li>
+          <li>반사율 50%에서 P는 최솟값 50%가 되지만 얽힘 품질은 최대입니다. 성공 확률과 품질이 서로 반대로 움직입니다.</li>
+          <li>빔이 굵을수록 위치 어긋남에는 둔감해지고 방향 어긋남에는 민감해집니다. 위치 허용 범위는 빔 반경에 비례하고, 방향 허용 범위는 퍼짐각 λ/πw에 비례하기 때문입니다.</li>
+          <li>손실만 있으면 품질은 변하지 않습니다. 손실이 크고 암계수가 있을 때 우연 동시계수 비율이 커지면서 품질이 떨어집니다.</li>
+          <li>μ를 키우면 펄스당 동시계수는 늘지만 여러 쌍이 섞여 품질이 떨어집니다. 암계수가 있으면 μ가 너무 작아도 품질이 떨어지므로 가장 좋은 밝기가 생깁니다.</li>
+          <li>손실이 거의 없을 때 μ를 키우면 S가 2√2를 조금 넘을 수 있습니다. 검출기 하나만 울린 경우만 고르는 후선택 때문에 생기는 겉보기 효과이고, 양자역학의 한계를 넘은 것이 아닙니다.</li>
+          <li>위상 오프셋 180°에서는 F가 0에 가까워지지만 동시성은 그대로입니다. 얽힘은 유지된 채 다른 벨 상태 |Ψ⁺⟩가 된 것입니다.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+//<core>
+const C_UM_PER_FS = 0.299792458;      // 빛이 1 fs 동안 가는 거리 (μm)
+const LAMBDA0_NM = 810;               // 중심 파장
+const PD_STEPS = [0, 1e-7, 3e-7, 1e-6, 3e-6, 1e-5, 3e-5, 1e-4, 3e-4, 1e-3, 3e-3, 1e-2];
+
+// 변인 → 해석적 결과
+function derive(p) {
+  const R = p.R, T = 1 - R;
+  const eta = 1 - p.loss;
+  const pd = PD_STEPS[p.pdIdx];
+  const sigLam = p.bw / (2 * Math.sqrt(2 * Math.LN2));                         // nm
+  const sigW = 2 * Math.PI * 299792458 * sigLam * 1e-9 / Math.pow(LAMBDA0_NM * 1e-9, 2); // rad/s
+  const Vt = Math.exp(-Math.pow(sigW * p.dt * 1e-15, 2));
+  const Vs = Math.exp(-(p.dlam * p.dlam) / (4 * sigLam * sigLam));
+  const Vm = 1 - p.D;
+  // 공간 모드: 허리가 빔 스플리터에 있는 가우시안 빔 두 개의 겹침
+  const w1 = p.w1 * 1e-3, w2 = w1 * Math.pow(2, p.wr), ws = w1 * w1 + w2 * w2; // m
+  const kth = 2 * Math.PI / (LAMBDA0_NM * 1e-9) * p.dth * 1e-6;                  // k·Δθ (rad/m)
+  const Vw = Math.pow(2 * w1 * w2 / ws, 2);                                      // 빔 폭 차이
+  const Vd = Math.exp(-2 * Math.pow(p.dx * 1e-3, 2) / ws);                       // 위치 어긋남
+  const Va = Math.exp(-kth * kth * w1 * w1 * w2 * w2 / (2 * ws));                // 방향 어긋남
+  const Vx = Vw * Vd * Va;
+  const V = Vm * Vt * Vs * Vx;
+  const phi0 = p.phi0 * Math.PI / 180, sphi = p.sphi * Math.PI / 180;
+  const deph = Math.exp(-sphi * sphi / 2);
+  const kappa = V * deph;
+  const split = T * T + R * R;
+  const Ptrue = eta * eta * split * Math.pow(1 - pd, 2);
+  const Pacc = 4 * eta * (1 - eta) * pd * Math.pow(1 - pd, 2) + 4 * Math.pow(1 - eta, 2) * pd * pd * Math.pow(1 - pd, 2);
+  const P = Ptrue + Pacc;
+  const w = P > 0 ? Ptrue / P : 0;
+  const q = kappa * T * R / split;
+  const Ezz = -w, Exx = -2 * w * q * Math.cos(phi0);
+  const F = w * (0.5 + q * Math.cos(phi0)) + (1 - w) / 4;
+  const C = Math.max(0, 2 * w * q - (1 - w) / 2);
+  const S = Math.SQRT2 * Math.abs(Ezz + Exx);
+  const out = { mu: p.mu || 0, R, T, eta, pd, sigLam, sigW, Vt, Vs, Vm, Vw, Vd, Va, Vx, V, phi0, sphi, deph, kappa, split, Ptrue, Pacc, P, w, q, Ezz, Exx, Eyy: Exx, F, C, S };
+  out.Ppulse = out.P; out.pMulti = 0; out.multi = null;
+  if (out.mu > 0) applyMultiPair(out);
+  return out;
+}
+
+// ── 다중 쌍 방출 ──
+// 광원이 펄스마다 n쌍을 낼 확률은 열적 분포 p_n = μ^n/(1+μ)^(n+1). n = 3까지 계산한다.
+// n = 0은 암계수만, n = 1은 위의 식, n ≥ 2는 pairPatterns의 정확한 검출 패턴 확률을 쓴다.
+function applyMultiPair(d) {
+  const mu = d.mu, t = mu / (1 + mu);
+  const pn = [1 / (1 + mu), t / (1 + mu), t * t / (1 + mu), t * t * t / (1 + mu)];
+  const dd = d.pd * d.pd * Math.pow(1 - d.pd, 2);
+  const P1 = d.Ptrue + d.Pacc, w1 = P1 > 0 ? d.Ptrue / P1 : 0;
+  const ang = { Z: 0, X: Math.PI / 2, B1: Math.PI / 4, B2: -Math.PI / 4 };
+  const pats = {}, tot = {};
+  const run = (key, c, dn, phi0) => {
+    const E1 = w1 * (-Math.cos(ang[c]) * Math.cos(ang[dn]) - Math.sin(ang[c]) * Math.sin(ang[dn]) * 2 * d.q * Math.cos(phi0));
+    let same = pn[0] * 2 * dd + pn[1] * P1 * (1 + E1) / 2, diff = pn[0] * 2 * dd + pn[1] * P1 * (1 - E1) / 2;
+    let pp = pn[0] * dd + pn[1] * d.Pacc / 4, mm = pp;
+    const pat = {};
+    for (let n = 2; n <= 3; n++) {
+      const r = pairPatterns(d, AN[c], AN[dn], n, phi0);
+      pat[n] = [r[0] + r[3], r[0] + r[1] + r[2] + r[3]];
+      same += pn[n] * (r[0] + r[3]); diff += pn[n] * (r[1] + r[2]); pp += pn[n] * r[0]; mm += pn[n] * r[3];
+    }
+    pats[key] = pat; tot[key] = { same, diff, pp, mm, E: (same - diff) / (same + diff) };
+  };
+  run('zz', 'Z', 'Z', d.phi0); run('xx', 'X', 'X', d.phi0);
+  run('c1', 'Z', 'B1', d.phi0); run('c2', 'Z', 'B2', d.phi0); run('c3', 'X', 'B1', d.phi0); run('c4', 'X', 'B2', d.phi0);
+  pats.yy = pats.xx; // z축 둘레 회전 대칭 때문에 R/L 기저는 D/A 기저와 같다
+  let Exx0 = tot.xx.E; // 동시성은 위상 오프셋을 보정한 결맞음으로 계산한다
+  if (d.phi0 !== 0) { run('x0', 'X', 'X', 0); Exx0 = tot.x0.E; delete pats.x0; }
+  const Ppulse = tot.zz.same + tot.zz.diff;
+  d.Ppulse = Ppulse; d.P = Ppulse / t;
+  d.Ezz = tot.zz.E; d.Exx = d.Eyy = tot.xx.E;
+  d.F = (1 - d.Ezz - 2 * d.Exx) / 4;
+  d.S = Math.abs(tot.c1.E + tot.c2.E + tot.c3.E - tot.c4.E);
+  d.C = Math.max(0, Math.abs(Exx0) - 2 * Math.sqrt(tot.zz.pp * tot.zz.mm) / Ppulse);
+  d.w = pn[1] * d.Ptrue / Ppulse;
+  d.pMulti = t * t;
+  d.multi = { cum: [pn[0], pn[0] + pn[1], pn[0] + pn[1] + pn[2], pn[0] + pn[1] + pn[2] + pn[3]], pat: pats };
+}
+
+function makeRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6D2B79F5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 편광 분석기: |+> = a|H> + b|V> (복소수 [re, im])
+function linAnalyzer(theta) { return { a: [Math.cos(theta / 2), 0], b: [Math.sin(theta / 2), 0] }; }
+const AN = {
+  Z: linAnalyzer(0), X: linAnalyzer(Math.PI / 2),
+  Y: { a: [Math.SQRT1_2, 0], b: [0, Math.SQRT1_2] },
+  B1: linAnalyzer(Math.PI / 4), B2: linAnalyzer(-Math.PI / 4),
+};
+const SETTINGS = [['zz', 'Z', 'Z'], ['xx', 'X', 'X'], ['yy', 'Y', 'Y'], ['c1', 'Z', 'B1'], ['c2', 'Z', 'B2'], ['c3', 'X', 'B1'], ['c4', 'X', 'B2']];
+
+function bras(an) { // <+|H>, <+|V>, <-|H>, <-|V>
+  const [ar, ai] = an.a, [br, bi] = an.b;
+  return { pH: [ar, -ai], pV: [br, -bi], mH: [-br, -bi], mV: [ar, ai] };
+}
+const cmul = (x, y) => [x[0] * y[0] - x[1] * y[1], x[0] * y[1] + x[1] * y[0]];
+const cabs2 = x => x[0] * x[0] + x[1] * x[1];
+
+// 한 가지 측정 설정에서 N번 시행. 반환: 동시계수 n, 그중 두 결과가 같은 횟수 same
+function simulateSetting(d, anC, anD, N, rng, mp) {
+  const bc = bras(anC), bd = bras(anD);
+  const { T, R, eta, pd, V, phi0, sphi, split } = d;
+  const A = T / Math.sqrt(split), B = R / Math.sqrt(split);
+  const pHV = T * T / split;
+  const cPH = cabs2(bc.pH), cPV = cabs2(bc.pV), dPH = cabs2(bd.pH), dPV = cabs2(bd.pV);
+  // 결과 (sc, sd) = (+,+), (+,-), (-,+) 의 확률: a0 − 2AB·Re(k·e^{iφ})
+  const combos = [[bc.pH, bc.pV, bd.pH, bd.pV], [bc.pH, bc.pV, bd.mH, bd.mV], [bc.mH, bc.mV, bd.pH, bd.pV]];
+  const a0 = [], kr = [], ki = [];
+  for (const [cH, cV, dH, dV] of combos) {
+    const u = cmul(cH, dV), v = cmul(cV, dH);
+    a0.push(A * A * cabs2(u) + B * B * cabs2(v));
+    const k = cmul([u[0], -u[1]], v);
+    kr.push(k[0]); ki.push(k[1]);
+  }
+  let n = 0, same = 0;
+  for (let i = 0; i < N; i++) {
+    let c = 0, dd = 0; // 비트 1 = '+' 검출기 클릭, 비트 2 = '−' 검출기 클릭
+    let pairs = 1;
+    if (mp) { // 이번 펄스에서 나온 광자쌍 수를 추첨. 2쌍 이상이면 계산해 둔 패턴 확률에서 결과를 뽑는다
+      const r = rng(), cu = mp.cum;
+      pairs = r < cu[0] ? 0 : r < cu[1] ? 1 : r < cu[2] ? 2 : r < cu[3] ? 3 : 4;
+      if (pairs >= 2) {
+        if (pairs > 3) continue;
+        const r2 = rng(), pt = mp.pat[pairs];
+        if (r2 < pt[0]) { n++; same++; } else if (r2 < pt[1]) n++;
+        continue;
+      }
+    }
+    const sa = pairs === 1 && rng() < eta, sb = pairs === 1 && rng() < eta;
+    if (sa && sb) {
+      if (rng() >= split) continue; // 같은 출력으로 뭉침 → 실패
+      let sc, sd;
+      if (rng() < V) {
+        let phi = phi0;
+        if (sphi > 0) phi += sphi * Math.sqrt(-2 * Math.log(1 - rng())) * Math.cos(2 * Math.PI * rng());
+        const cs = Math.cos(phi), sn = Math.sin(phi), m = 2 * A * B;
+        const p0 = a0[0] - m * (kr[0] * cs - ki[0] * sn);
+        const p1 = a0[1] - m * (kr[1] * cs - ki[1] * sn);
+        const p2 = a0[2] - m * (kr[2] * cs - ki[2] * sn);
+        const r = rng();
+        if (r < p0) { sc = true; sd = true; }
+        else if (r < p0 + p1) { sc = true; sd = false; }
+        else if (r < p0 + p1 + p2) { sc = false; sd = true; }
+        else { sc = false; sd = false; }
+      } else if (rng() < pHV) { sc = rng() < cPH; sd = rng() < dPV; }
+      else { sc = rng() < cPV; sd = rng() < dPH; }
+      c = sc ? 1 : 2; dd = sd ? 1 : 2;
+    } else if (sa) {
+      if (rng() < T) c = rng() < cPH ? 1 : 2; else dd = rng() < dPH ? 1 : 2;
+    } else if (sb) {
+      if (rng() < R) c = rng() < cPV ? 1 : 2; else dd = rng() < dPV ? 1 : 2;
+    }
+    if (pd > 0) {
+      if (rng() < pd) c |= 1;
+      if (rng() < pd) c |= 2;
+      if (rng() < pd) dd |= 1;
+      if (rng() < pd) dd |= 2;
+    }
+    if ((c === 1 || c === 2) && (dd === 1 || dd === 2)) { n++; if (c === dd) same++; }
+  }
+  return { n, same };
+}
+
+function runExperiment(p, N, seed) {
+  const d = derive(p), rng = makeRng(seed), raw = {};
+  for (const [key, c, dd] of SETTINGS) raw[key] = simulateSetting(d, AN[c], AN[dd], N, rng, d.multi ? { cum: d.multi.cum, pat: d.multi.pat[key] } : null);
+  return estimate(raw, N, d);
+}
+
+function estimate(raw, N, d) {
+  const E = {}, sE = {};
+  let tot = 0;
+  for (const key in raw) {
+    const { n, same } = raw[key];
+    tot += n;
+    E[key] = n > 0 ? (2 * same - n) / n : NaN;
+    sE[key] = n > 0 ? Math.sqrt(Math.max(0, 1 - E[key] * E[key]) / n) : NaN;
+  }
+  const trials = 7 * N;
+  let P = tot / trials, sP = Math.sqrt(P * (1 - P) / trials);
+  if (d && d.mu > 0) { // 다중 쌍이 있으면 H/V 기저 시행만으로 추정하고, 방출된 펄스 기준으로 환산한다
+    const pz = raw.zz.n / N, t = d.mu / (1 + d.mu);
+    P = pz / t; sP = Math.sqrt(pz * (1 - pz) / N) / t;
+  }
+  const F = (1 - E.zz - E.xx - E.yy) / 4;
+  const sF = Math.sqrt(sE.zz ** 2 + sE.xx ** 2 + sE.yy ** 2) / 4;
+  const S = Math.abs(E.c1 + E.c2 + E.c3 - E.c4);
+  const sS = Math.sqrt(sE.c1 ** 2 + sE.c2 ** 2 + sE.c3 ** 2 + sE.c4 ** 2);
+  return { N, trials, coinc: tot, P, sP, E, sE, F, sF, S, sS };
+}
+
+// n쌍(H 광자 n개 + V 광자 n개)이 들어왔을 때 검출 패턴 (c,d) = (+,+), (+,−), (−,+), (−,−)의 확률.
+// 문턱 검출기(광자 수를 세지 못함) 기준이고, 각 팔에서 검출기 하나만 울린 경우다.
+// 검출기 모드 순서: c+, c−, d+, d−
+const FACT = [1, 1, 2, 6, 24, 120, 720];
+const BINOM = [[1], [1, 1], [1, 2, 1], [1, 3, 3, 1]];
+const _re = [new Float64Array(343), new Float64Array(343)], _im = [new Float64Array(343), new Float64Array(343)];
+
+function linForms(d, anC, anD, phi) {
+  const bc = bras(anC), bd = bras(anD), sT = Math.sqrt(d.T), sR = Math.sqrt(d.R);
+  const iR = [0, sR], iRe = cmul(iR, [Math.cos(phi), Math.sin(phi)]);
+  return {
+    La: [[sT * bc.pH[0], sT * bc.pH[1]], [sT * bc.mH[0], sT * bc.mH[1]], cmul(iR, bd.pH), cmul(iR, bd.mH)],
+    Lb: [cmul(iRe, bc.pV), cmul(iRe, bc.mV), [sT * bd.pV[0], sT * bd.pV[1]], [sT * bd.mV[0], sT * bd.mV[1]]],
+  };
+}
+
+// 생성 연산자 다항식 (La)^n (Lb)^m 을 전개해, 부분집합 S의 검출기에 광자가 하나도 검출되지 않을 확률의 생성 함수를 구한다.
+// 지수 (e0,e1,e2,e3)의 자리는 e0 + 7·e1 + 49·e2 이고 e3은 차수에서 정해진다.
+function genFn(La, Lb, n, m, qp) {
+  let cur = 0;
+  _re[0].fill(0); _im[0].fill(0); _re[0][0] = 1;
+  for (let D = 0; D < n + m; D++) {
+    const L = D < n ? La : Lb, re = _re[cur], im = _im[cur], re2 = _re[1 - cur], im2 = _im[1 - cur];
+    re2.fill(0); im2.fill(0);
+    for (let e0 = 0; e0 <= D; e0++) for (let e1 = 0; e0 + e1 <= D; e1++) for (let e2 = 0; e0 + e1 + e2 <= D; e2++) {
+      const i = e0 + 7 * e1 + 49 * e2, a = re[i], b = im[i];
+      if (a === 0 && b === 0) continue;
+      re2[i + 1] += a * L[0][0] - b * L[0][1]; im2[i + 1] += a * L[0][1] + b * L[0][0];
+      re2[i + 7] += a * L[1][0] - b * L[1][1]; im2[i + 7] += a * L[1][1] + b * L[1][0];
+      re2[i + 49] += a * L[2][0] - b * L[2][1]; im2[i + 49] += a * L[2][1] + b * L[2][0];
+      re2[i] += a * L[3][0] - b * L[3][1]; im2[i] += a * L[3][1] + b * L[3][0];
+    }
+    cur = 1 - cur;
+  }
+  const re = _re[cur], im = _im[cur], D = n + m, norm = 1 / (FACT[n] * FACT[m]), G = new Float64Array(16);
+  for (let e0 = 0; e0 <= D; e0++) for (let e1 = 0; e0 + e1 <= D; e1++) for (let e2 = 0; e0 + e1 + e2 <= D; e2++) {
+    const i = e0 + 7 * e1 + 49 * e2, e3 = D - e0 - e1 - e2;
+    const pr = (re[i] * re[i] + im[i] * im[i]) * FACT[e0] * FACT[e1] * FACT[e2] * FACT[e3] * norm;
+    if (pr === 0) continue;
+    const t0 = qp[e0], t1 = qp[e1], t2 = qp[e2], t3 = qp[e3];
+    for (let S = 0; S < 16; S++) G[S] += pr * (S & 1 ? t0 : 1) * (S & 2 ? t1 : 1) * (S & 4 ? t2 : 1) * (S & 8 ? t3 : 1);
+  }
+  return G;
+}
+
+function pairPatterns(d, anC, anD, n, phi0) {
+  const q = 1 - d.eta, u = 1 - d.pd, qp = [1];
+  for (let i = 1; i <= 6; i++) qp[i] = qp[i - 1] * q;
+  const N = new Float64Array(16);
+  // V 광자 n개 중 k개는 H 광자와 구별되는 모드에 있다 (이항 분포). 그 k개는 간섭 없이 따로 퍼진다.
+  for (let k = 0; k <= n; k++) {
+    const wk = BINOM[n][k] * Math.pow(d.V, n - k) * Math.pow(1 - d.V, k);
+    if (wk < 1e-12) continue;
+    const m = n - k, M = 2 * m + 1, Gx = new Float64Array(16);
+    let ub = null;
+    for (let s = 0; s < M; s++) { // 위상 요동 평균: 위상에 대한 푸리에 성분마다 exp(−h²σ²/2)를 곱한 것과 같다
+      const phi = 2 * Math.PI * s / M;
+      let K = 1;
+      for (let h = 1; h <= m; h++) K += 2 * Math.cos(h * (phi0 - phi)) * Math.exp(-h * h * d.sphi * d.sphi / 2);
+      const { La, Lb } = linForms(d, anC, anD, phi);
+      if (!ub) ub = Lb.map(cabs2);
+      const G = genFn(La, Lb, n, m, qp);
+      for (let S = 0; S < 16; S++) Gx[S] += K / M * G[S];
+    }
+    for (let S = 0; S < 16; S++) {
+      let base = 0;
+      for (let j = 0; j < 4; j++) base += ub[j] * (S >> j & 1 ? q : 1);
+      N[S] += wk * Gx[S] * Math.pow(base, k);
+    }
+  }
+  for (let S = 0; S < 16; S++) N[S] *= Math.pow(u, (S & 1) + (S >> 1 & 1) + (S >> 2 & 1) + (S >> 3 & 1));
+  // 검출기 i, j만 울리고 나머지 둘은 울리지 않을 확률 (포함·배제)
+  const pat = (i, j) => { const B = 15 ^ (1 << i) ^ (1 << j); return N[B] - N[B | 1 << i] - N[B | 1 << j] + N[15]; };
+  return [pat(0, 2), pat(0, 3), pat(1, 2), pat(1, 3)];
+}
+//</core>
+
+/* ───────── 화면 ───────── */
+const $ = s => document.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+const IDEAL = { R: 0.5, dt: 0, dlam: 0, bw: 3, dx: 0, dth: 0, wr: 0, w1: 1, D: 0, loss: 0, pdIdx: 0, phi0: 0, sphi: 0, mu: 0 };
+const REAL = { R: 0.52, dt: 60, dlam: 0.4, bw: 3, dx: 0.1, dth: 30, wr: 0.15, w1: 1, D: 0.01, loss: 0.6, pdIdx: 5, phi0: 8, sphi: 12, mu: 0 };
+const SPDC = { ...REAL, mu: 0.05 };
+
+const SUP = { '-': '⁻', 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+const fmtPd = v => {
+  if (v === 0) return '0 (없음)';
+  const e = Math.floor(Math.log10(v) + 1e-9);
+  return `${(v / Math.pow(10, e)).toFixed(0)}×10${String(e).split('').map(ch => SUP[ch]).join('')}`;
+};
+const GROUPS = [
+  { id: 'bs', name: '빔 스플리터' },
+  { id: 'time', name: '광원' },
+  { id: 'space', name: '공간 모드' },
+  { id: 'loss', name: '손실·잡음' },
+  { id: 'phase', name: '위상' },
+];
+const CONTROLS = [
+  { key: 'R', g: 'bs', label: '반사율 R', min: 0, max: 1, step: 0.01, sweep: true,
+    show: v => `${Math.round(v * 100)}%`, hint: p => `투과율 ${Math.round(100 - p.R * 100)}%`, axis: '반사율 R (%)', tick: v => (v * 100).toFixed(0) },
+  { key: 'mu', g: 'time', label: '펄스당 평균 광자쌍 수 μ', min: 0, max: 0.2, step: 0.005, sweepMin: 0.005, sweep: true,
+    show: v => v === 0 ? '0 (이상적)' : v.toFixed(3),
+    hint: (p, d) => p.mu === 0 ? '매번 정확히 한 쌍만 나오는 광원' : `한 펄스에서 2쌍 이상 나올 확률 ${(d.pMulti * 100).toFixed(2)}%`,
+    axis: '펄스당 평균 광자쌍 수 μ', tick: v => v.toFixed(3) },
+  { key: 'dt', g: 'time', label: '도착 시간 차 Δt', min: -1000, max: 1000, step: 5, sweep: true,
+    show: v => `${v} fs`, hint: p => `경로 길이 차 ${(p.dt * C_UM_PER_FS).toFixed(1)} μm에 해당`, axis: '도착 시간 차 Δt (fs)', tick: v => v.toFixed(0) },
+  { key: 'dlam', g: 'time', label: '중심 파장 차 Δλ', min: 0, max: 10, step: 0.05, sweep: true,
+    show: v => `${v.toFixed(2)} nm`, hint: () => `기준 파장 ${LAMBDA0_NM} nm`, axis: '중심 파장 차 Δλ (nm)', tick: v => v.toFixed(1) },
+  { key: 'bw', g: 'time', label: '스펙트럼 대역폭 (반치폭)', min: 0.5, max: 20, step: 0.5, sweep: true,
+    show: v => `${v.toFixed(1)} nm`, hint: (p, d) => `결맞음 시간 약 ${(1e15 / d.sigW).toFixed(0)} fs`, axis: '스펙트럼 대역폭 (nm)', tick: v => v.toFixed(1) },
+  { key: 'dx', g: 'space', label: '입사 위치 어긋남 Δx', min: 0, max: 3, step: 0.01, sweep: true,
+    show: v => `${v.toFixed(2)} mm`, hint: p => `광자 1 빔 반경의 ${(p.dx / p.w1 * 100).toFixed(0)}%`, axis: '입사 위치 어긋남 Δx (mm)', tick: v => v.toFixed(2) },
+  { key: 'dth', g: 'space', label: '입사 방향 어긋남 Δθ', min: 0, max: 1000, step: 5, sweep: true,
+    show: v => `${v} μrad`, hint: p => `광자 1 빔의 퍼짐각은 ${(LAMBDA0_NM / (Math.PI * p.w1)).toFixed(0)} μrad`, axis: '입사 방향 어긋남 Δθ (μrad)', tick: v => v.toFixed(0) },
+  { key: 'wr', g: 'space', label: '빔 폭 비 w₂/w₁', min: -2, max: 2, step: 0.05, sweep: true,
+    show: v => `×${Math.pow(2, v).toFixed(2)}`, hint: () => '광자 2의 빔 반경 ÷ 광자 1의 빔 반경', axis: '빔 폭 비 w₂/w₁ (로그 눈금)', tick: v => Math.pow(2, v).toFixed(2) },
+  { key: 'w1', g: 'space', label: '광자 1의 빔 반경 w₁', min: 0.2, max: 3, step: 0.05, sweep: true,
+    show: v => `${v.toFixed(2)} mm`, hint: () => '세기가 1/e²로 줄어드는 반경', axis: '광자 1의 빔 반경 w₁ (mm)', tick: v => v.toFixed(2) },
+  { key: 'D', g: 'space', label: '그 밖의 구별 가능성 D', min: 0, max: 1, step: 0.01, sweep: true,
+    show: v => v.toFixed(2), hint: () => '시간·파장·공간 외의 나머지 원인', axis: '그 밖의 구별 가능성 D', tick: v => v.toFixed(2) },
+  { key: 'loss', g: 'loss', label: '광자당 손실률', min: 0, max: 0.99, step: 0.01, sweep: true,
+    show: v => `${Math.round(v * 100)}%`, hint: () => '경로 손실과 검출 효율을 합친 값', axis: '광자당 손실률 (%)', tick: v => (v * 100).toFixed(0) },
+  { key: 'pdIdx', g: 'loss', label: '검출기 암계수 확률', min: 0, max: PD_STEPS.length - 1, step: 1, sweep: false,
+    show: v => fmtPd(PD_STEPS[v]), hint: () => '검출 창 하나에서 광자 없이 클릭할 확률' },
+  { key: 'phi0', g: 'phase', label: '위상 오프셋 φ₀', min: -180, max: 180, step: 1, sweep: true,
+    show: v => `${v}°`, hint: () => '두 출력 경로의 H–V 상대 위상 (고정값)', axis: '위상 오프셋 φ₀ (°)', tick: v => v.toFixed(0) },
+  { key: 'sphi', g: 'phase', label: '위상 요동 σφ', min: 0, max: 180, step: 1, sweep: true,
+    show: v => `${v}° RMS`, hint: () => '시행마다 무작위로 흔들리는 정도', axis: '위상 요동 σφ (°)', tick: v => v.toFixed(0) },
+];
+const SWEEPABLE = CONTROLS.filter(c => c.sweep);
+const SERIES = [
+  { key: 'P', name: '성공 확률 P', color: 'var(--s1)' },
+  { key: 'F', name: '충실도 F', color: 'var(--s2)' },
+  { key: 'C', name: '동시성 C', color: 'var(--s3)' },
+];
+const N_LINE = 200, N_PTS = 20; // 곡선 분할 수, 표·구간 실험 분할 수
+
+const state = { p: { ...REAL }, sweep: 'dt', tab: 'time', mcCur: null, mcSweep: null, busy: false };
+
+/* ───────── 조절 손잡이 ───────── */
+function buildControls() {
+  const tabs = $('#tabs'), panels = $('#panels');
+  for (const g of GROUPS) {
+    const tab = el('button', 'tab'); tab.type = 'button'; tab.id = `tab-${g.id}`;
+    tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', `panel-${g.id}`);
+    tab.append(el('span', null, g.name), el('i', 'dot'));
+    tab.addEventListener('click', () => setTab(g.id));
+    tabs.appendChild(tab);
+    const panel = el('div', 'knob-row'); panel.id = `panel-${g.id}`;
+    panel.setAttribute('role', 'tabpanel'); panel.setAttribute('aria-labelledby', tab.id);
+    for (const c of CONTROLS.filter(c => c.g === g.id)) {
+      const box = el('div', 'knob');
+      const lab = el('label', null, c.label); lab.htmlFor = `ctl-${c.key}`;
+      const out = el('output'); out.id = `out-${c.key}`; out.htmlFor = `ctl-${c.key}`;
+      const input = el('input'); input.type = 'range'; input.id = `ctl-${c.key}`;
+      input.min = c.min; input.max = c.max; input.step = c.step; input.value = state.p[c.key];
+      input.addEventListener('input', () => { state.p[c.key] = parseFloat(input.value); render(); });
+      const hint = el('small'); hint.id = `hint-${c.key}`;
+      box.append(lab, out, input, hint);
+      panel.appendChild(box);
+    }
+    panels.appendChild(panel);
+  }
+  const sel = $('#sweep-var');
+  for (const c of SWEEPABLE) { const o = el('option', null, c.label); o.value = c.key; sel.appendChild(o); }
+  sel.value = state.sweep;
+  sel.addEventListener('change', () => { state.sweep = sel.value; render(); });
+}
+
+function setTab(id) {
+  state.tab = id;
+  for (const g of GROUPS) {
+    $(`#tab-${g.id}`).setAttribute('aria-selected', g.id === id ? 'true' : 'false');
+    $(`#panel-${g.id}`).hidden = g.id !== id;
+  }
+  document.querySelectorAll('#bench [data-g]').forEach(n => n.classList.toggle('on', n.dataset.g === id));
+  try { localStorage.setItem('sim-tab', id); } catch (e) { /* 저장 실패는 무시 */ }
+}
+
+function setParams(p) {
+  state.p = { ...p };
+  for (const c of CONTROLS) $(`#ctl-${c.key}`).value = state.p[c.key];
+  render();
+}
+
+/* ───────── 실험 장치 그림 ───────── */
+const BX = 400, BY = 190;
+let geom = null;
+const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function buildBench() {
+  const pulse = id => `<ellipse id="${id}" visibility="hidden" style="stroke:var(--beam);stroke-width:1"/>`;
+  $('#bench').innerHTML = `<svg viewBox="0 0 800 380" role="img" aria-label="위에서 본 실험 장치. 광원 1의 H 편광 광자와 광원 2의 V 편광 광자가 빔 스플리터에서 만나고, 두 출력이 편광 분석기를 지나 검출기 c와 d로 간다.">
+<defs><pattern id="holes" width="25" height="25" patternUnits="userSpaceOnUse"><circle class="hole" cx="12.5" cy="12.5" r="2.1"/></pattern></defs>
+<rect class="table" width="800" height="380"/><rect width="800" height="380" fill="url(#holes)"/>
+<path class="cable" d="M698 190 C752 190 746 112 800 112"/>
+<path class="cable" d="M428 348 C580 348 660 296 800 296"/>
+<line class="guide" x1="400" y1="58" x2="400" y2="326"/>
+<g id="beams"><line id="b1in"/><line id="b1t"/><line id="b1r"/><line id="b2in"/><line id="b2t"/><line id="b2r"/></g>
+<g id="pulses">${['p1in', 'p1t', 'p1r', 'p2in', 'p2t', 'p2r'].map(pulse).join('')}</g>
+<g class="hit" data-g="time"><rect class="ring" x="21" y="159" width="78" height="62"/><rect class="part" x="28" y="166" width="64" height="48" rx="2"/></g>
+<text x="60" y="152" text-anchor="middle">광원 1</text><text class="live" x="60" y="238" text-anchor="middle">H 편광 ↔</text><text class="live" id="lv-mu" x="60" y="253" text-anchor="middle"></text>
+<g class="hit" data-g="time"><rect class="ring" x="361" y="7" width="78" height="58"/><rect class="part" x="368" y="14" width="64" height="44" rx="2"/></g>
+<text x="448" y="30">광원 2</text><text class="live" x="448" y="46">V 편광 ⊙</text>
+<text class="live" id="lv-dt" x="352" y="30" text-anchor="end"></text><text class="live" id="lv-dl" x="352" y="46" text-anchor="end"></text>
+<g class="hit" data-g="space"><rect class="ring" x="378" y="70" width="44" height="80"/><line class="grab" x1="400" y1="66" x2="400" y2="156" stroke-width="44"/></g>
+<text class="live" id="lv-dx" x="430" y="104"></text><text class="live" id="lv-dth" x="430" y="120"></text>
+<g class="hit" data-g="bs"><rect class="ring" x="364" y="154" width="72" height="72"/><rect class="glass" x="372" y="162" width="56" height="56"/><line class="coat" x1="372" y1="162" x2="428" y2="218"/></g>
+<text x="358" y="242" text-anchor="end">빔 스플리터</text><text class="live" id="lv-bs" x="358" y="258" text-anchor="end"></text>
+<g class="hit" data-g="phase"><rect class="ring" x="474" y="159" width="24" height="62"/><rect class="glass" x="482" y="166" width="8" height="48"/><rect class="grab" x="472" y="158" width="28" height="64"/></g>
+<text x="486" y="152" text-anchor="middle">위상판</text><text class="live" id="lv-phi" x="486" y="238" text-anchor="middle"></text>
+<rect class="glass" x="552" y="164" width="16" height="52"/><text x="560" y="152" text-anchor="middle">편광 분석기</text>
+<g class="hit" data-g="loss"><rect class="ring" x="633" y="159" width="72" height="62"/><rect class="part" x="640" y="166" width="58" height="48" rx="2"/></g>
+<text x="669" y="152" text-anchor="middle">검출기 c</text><text class="live" id="lv-eta-c" x="669" y="238" text-anchor="middle"></text>
+<rect class="glass" x="374" y="272" width="52" height="16"/><text x="364" y="284" text-anchor="end">편광 분석기</text>
+<g class="hit" data-g="loss"><rect class="ring" x="365" y="319" width="70" height="58"/><rect class="part" x="372" y="326" width="56" height="44" rx="2"/></g>
+<text x="358" y="344" text-anchor="end">검출기 d</text><text class="live" id="lv-eta-d" x="358" y="360" text-anchor="end"></text>
+</svg>`;
+  document.querySelectorAll('#bench [data-g]').forEach(n => n.addEventListener('click', () => setTab(n.dataset.g)));
+}
+
+function setLine(id, x1, y1, x2, y2, w, op, color) {
+  const e = document.getElementById(id);
+  e.setAttribute('x1', x1.toFixed(1)); e.setAttribute('y1', y1.toFixed(1));
+  e.setAttribute('x2', x2.toFixed(1)); e.setAttribute('y2', y2.toFixed(1));
+  e.setAttribute('stroke-width', w.toFixed(1)); e.setAttribute('opacity', op.toFixed(3));
+  if (color) e.style.stroke = color;
+}
+
+// 어긋남·빔 굵기·색은 보기 쉽게 과장해서 그린다
+function updateBench(p, d) {
+  const op = 0.3 + 0.55 * d.eta;
+  const w1 = 3 + 2.4 * p.w1, w2 = Math.min(26, 3 + 2.4 * p.w1 * Math.pow(2, p.wr));
+  const dxp = p.dx * 7, a = p.dth / 1000 * 7 * Math.PI / 180;
+  const hx = BX + dxp, hy = BY + dxp, ux = Math.sin(a), uy = Math.cos(a);
+  const L2 = (hy - 58) / uy, Lt = (326 - hy) / uy, Lr = (640 - hx) / uy;
+  const col2 = `hsl(${(357 + p.dlam * 4).toFixed(0)} 86% var(--beam-l))`;
+  const kT = 0.12 + 0.88 * d.T, kR = 0.12 + 0.88 * d.R;
+  setLine('b1in', 92, BY, BX, BY, w1, op);
+  setLine('b1t', BX, BY, 640, BY, w1, op * kT);
+  setLine('b1r', BX, BY, BX, 326, w1, op * kR);
+  setLine('b2in', hx - ux * L2, hy - uy * L2, hx, hy, w2, op, col2);
+  setLine('b2t', hx, hy, hx + ux * Lt, hy + uy * Lt, w2, op * kT, col2);
+  setLine('b2r', hx, hy, hx + uy * Lr, hy + ux * Lr, w2, op * kR, col2);
+  geom = { w1, w2, hx, hy, ux, uy, L2, Lt, Lr, kT, kR, dtp: p.dt / 1000 * 60, tc: Math.max(4, Math.min(36, 1e15 / d.sigW / 1000 * 60)) };
+  $('#lv-mu').textContent = p.mu === 0 ? '매번 1쌍' : `μ ${p.mu.toFixed(3)}`;
+  $('#lv-dt').textContent = `Δt ${p.dt > 0 ? '+' : ''}${p.dt} fs`;
+  $('#lv-dl').textContent = `Δλ ${p.dlam.toFixed(2)} nm`;
+  $('#lv-dx').textContent = `Δx ${p.dx.toFixed(2)} mm`;
+  $('#lv-dth').textContent = `Δθ ${p.dth} μrad`;
+  $('#lv-bs').textContent = `R ${Math.round(d.R * 100)} : T ${Math.round(d.T * 100)}`;
+  $('#lv-phi').textContent = `φ₀ ${p.phi0}° ± ${p.sphi}°`;
+  $('#lv-eta-c').textContent = $('#lv-eta-d').textContent = `효율 ${Math.round(d.eta * 100)}%`;
+  if (still) drawPulses(-70);
+}
+
+function setPulse(id, show, x, y, deg, rx, ry, op) {
+  const e = document.getElementById(id);
+  if (!show) { e.setAttribute('visibility', 'hidden'); return; }
+  e.setAttribute('visibility', 'visible');
+  e.setAttribute('cx', x.toFixed(1)); e.setAttribute('cy', y.toFixed(1));
+  e.setAttribute('rx', rx.toFixed(1)); e.setAttribute('ry', ry.toFixed(1));
+  e.setAttribute('transform', `rotate(${deg.toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)})`);
+  e.setAttribute('opacity', op.toFixed(2));
+}
+
+// q: 광자 1 파동 묶음의 위치 (빔 스플리터 기준, 지나기 전이 음수)
+function drawPulses(q) {
+  const g = geom; if (!g) return;
+  const q2 = q - g.dtp, r1 = g.w1 / 2 + 1.5, r2 = g.w2 / 2 + 1.5;
+  const aDeg = Math.atan2(g.ux, g.uy) * 180 / Math.PI;
+  setPulse('p1in', q < 0 && q > -300, BX + q, BY, 0, g.tc, r1, 0.95);
+  setPulse('p1t', q >= 0 && q < 236, BX + q, BY, 0, g.tc, r1, 0.95 * g.kT);
+  setPulse('p1r', q >= 0 && q < 132, BX, BY + q, 90, g.tc, r1, 0.95 * g.kR);
+  setPulse('p2in', q2 < 0 && q2 > 4 - g.L2, g.hx + g.ux * q2, g.hy + g.uy * q2, 90 - aDeg, g.tc, r2, 0.95);
+  setPulse('p2t', q2 >= 0 && q2 < g.Lt - 4, g.hx + g.ux * q2, g.hy + g.uy * q2, 90 - aDeg, g.tc, r2, 0.95 * g.kT);
+  setPulse('p2r', q2 >= 0 && q2 < g.Lr - 4, g.hx + g.uy * q2, g.hy + g.ux * q2, aDeg, g.tc, r2, 0.95 * g.kR);
+}
+function tick(t) { drawPulses(-330 + ((t / 3600) % 1) * 600); requestAnimationFrame(tick); }
+
+/* ───────── 결과 표시 ───────── */
+const fmtP = v => v >= 0.0001 ? `${(v * 100).toFixed(v >= 0.1 ? 1 : 2)}%` : v > 0 ? `${(v * 100).toExponential(1)}%` : '0%';
+const f3 = v => Number.isFinite(v) ? v.toFixed(3) : '–';
+const f4 = v => Number.isFinite(v) ? v.toFixed(4) : '–';
+
+function sweepSig() { return JSON.stringify({ ...state.p, [state.sweep]: null, _k: state.sweep }); }
+function curSig() { return JSON.stringify(state.p); }
+function sweepX(i, n) { const c = CONTROLS.find(c => c.key === state.sweep), lo = c.sweepMin ?? c.min; return lo + (c.max - lo) * i / n; }
+function multiOn() { return state.p.mu > 0 || state.sweep === 'mu'; }
+
+function render() {
+  const p = state.p, d = derive(p);
+  for (const c of CONTROLS) {
+    $(`#out-${c.key}`).textContent = c.show(p[c.key]);
+    $(`#hint-${c.key}`).textContent = c.hint(p, d);
+  }
+  for (const g of GROUPS) {
+    const changed = CONTROLS.some(c => c.g === g.id && p[c.key] !== IDEAL[c.key]);
+    $(`#tab-${g.id}`).classList.toggle('mod', changed);
+  }
+  updateBench(p, d);
+  $('#t-P').textContent = fmtP(d.P);
+  $('#t-sub').textContent = d.mu > 0 ? `광자쌍이 나온 펄스 기준 · 펄스당 ${fmtP(d.Ppulse)}` : '광자쌍 1회 입사당 동시계수';
+  $('#t-F').textContent = f3(d.F);
+  $('#t-C').textContent = f3(d.C);
+  $('#t-S').textContent = f3(d.S);
+
+  const lamps = $('#lamps'); lamps.textContent = '';
+  for (const [on, yes, no] of [
+    [d.C > 0, '얽힘 있음', '얽힘 없음'],
+    [d.S > 2, '벨 부등식 위반', '벨 부등식 위반 안 함'],
+    [d.F > 0.5, '충실도 0.5 초과', '충실도 0.5 이하'],
+  ]) {
+    const li = el('li', on ? 'lit' : ''); li.append(el('i'), document.createTextNode(on ? yes : no)); lamps.appendChild(li);
+  }
+
+  const chain = $('#chain'); chain.textContent = '';
+  const link = (k, v, cls) => {
+    const w = el('div', cls); const bar = el('span', 'bar'); const fill = el('i');
+    fill.style.width = `${Math.max(0, Math.min(1, v)) * 100}%`; bar.appendChild(fill);
+    w.append(el('dt', null, k), el('dd', null, v > 0.9995 && v < 1 ? v.toFixed(5) : f3(v)), bar); chain.appendChild(w);
+  };
+  link('시간 겹침', d.Vt); link('파장 겹침', d.Vs); link('위치 겹침', d.Vd); link('방향 겹침', d.Va);
+  link('빔 폭 겹침', d.Vw); link('그 밖 (1 − D)', d.Vm); link('위상 결맞음', d.deph);
+  link('가시도 κ (곱)', d.kappa, 'total'); link('신호 비율 w', d.w);
+
+  if (state.mcSweep && state.mcSweep.sig !== sweepSig()) state.mcSweep = null;
+  if (state.mcCur && state.mcCur.sig !== curSig()) state.mcCur = null;
+  renderCharts();
+  renderSweepTable();
+  renderMcTable(d);
+}
+
+/* ───────── 그래프 ───────── */
+function renderCharts() {
+  const ctl = CONTROLS.find(c => c.key === state.sweep);
+  const xs = [], rows = [];
+  const nLine = multiOn() ? 60 : N_LINE; // 다중 쌍 계산은 무거워서 점을 줄인다
+  for (let i = 0; i <= nLine; i++) {
+    const x = sweepX(i, nLine);
+    xs.push(x); rows.push(derive({ ...state.p, [state.sweep]: x }));
+  }
+  const mc = state.mcSweep;
+  const legend = $('#legend-1'); legend.textContent = '';
+  for (const s of SERIES) {
+    const item = el('span'); const ln = el('span', 'ln'); ln.style.borderColor = s.color;
+    item.append(ln, document.createTextNode(s.name)); legend.appendChild(item);
+  }
+  if (mc) { const item = el('span'); item.append(el('span', 'pt'), document.createTextNode('가상 실험 (±1σ)')); legend.appendChild(item); }
+
+  const base = { xs, xMin: ctl.sweepMin ?? ctl.min, xMax: ctl.max, xLabel: ctl.axis, tick: ctl.tick, marker: state.p[state.sweep] };
+  drawChart($('#chart-1'), {
+    ...base, height: 300, yMin: 0, yMax: 1, yTicks: [0, 0.25, 0.5, 0.75, 1], yFmt: v => v.toFixed(2),
+    series: SERIES.map(s => ({ name: s.name, short: s.name, color: s.color, values: rows.map(r => r[s.key]) })),
+    points: mc ? mc.pts.flatMap(pt => [
+      { x: pt.x, y: pt.r.P, err: pt.r.sP, color: 'var(--s1)' },
+      { x: pt.x, y: pt.r.F, err: pt.r.sF, color: 'var(--s2)' }]) : [],
+  });
+  drawChart($('#chart-2'), {
+    ...base, height: 210, yMin: 0, yMax: 3, yTicks: [0, 1, 2, 3], yFmt: v => v.toFixed(0),
+    series: [{ name: 'CHSH 값 S', short: 'S', color: 'var(--s4)', values: rows.map(r => r.S) }],
+    refs: [{ y: 2, label: '고전 한계 S = 2' }, { y: 2 * Math.SQRT2, label: '양자 최대 2√2' }],
+    points: mc ? mc.pts.map(pt => ({ x: pt.x, y: pt.r.S, err: pt.r.sS, color: 'var(--s4)' })) : [],
+  });
+}
+
+function drawChart(host, cfg) {
+  const W = Math.max(260, Math.floor(host.clientWidth || 600)), H = cfg.height;
+  const m = { l: 42, r: 86, t: 12, b: 42 };
+  const iw = W - m.l - m.r, ih = H - m.t - m.b;
+  const X = v => m.l + (v - cfg.xMin) / (cfg.xMax - cfg.xMin) * iw;
+  const Y = v => m.t + (1 - (Math.min(cfg.yMax, Math.max(cfg.yMin, v)) - cfg.yMin) / (cfg.yMax - cfg.yMin)) * ih;
+  const n = v => v.toFixed(1);
+  let s = `<svg viewBox="0 0 ${W} ${H}" height="${H}" role="img" aria-label="${cfg.series.map(q => q.name).join(', ')} 대 ${cfg.xLabel}">`;
+  for (const t of cfg.yTicks) {
+    s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${n(Y(t))}" y2="${n(Y(t))}" stroke="${t === cfg.yMin ? 'var(--ink)' : 'var(--grid)'}" stroke-width="1"/>`;
+    s += `<text class="tick" x="${m.l - 8}" y="${n(Y(t) + 3.5)}" text-anchor="end">${cfg.yFmt(t)}</text>`;
+  }
+  for (let i = 0; i <= 4; i++) {
+    const v = cfg.xMin + (cfg.xMax - cfg.xMin) * i / 4;
+    s += `<line x1="${n(X(v))}" x2="${n(X(v))}" y1="${m.t + ih}" y2="${m.t + ih + 5}" stroke="var(--ink)" stroke-width="1"/>`;
+    s += `<text class="tick" x="${n(X(v))}" y="${m.t + ih + 18}" text-anchor="middle">${cfg.tick(v)}</text>`;
+  }
+  s += `<text x="${m.l + iw / 2}" y="${H - 4}" text-anchor="middle">${cfg.xLabel}</text>`;
+  for (const r of cfg.refs || []) {
+    s += `<line x1="${m.l}" x2="${m.l + iw}" y1="${n(Y(r.y))}" y2="${n(Y(r.y))}" stroke="var(--muted)" stroke-width="1" stroke-dasharray="2 4"/>`;
+    s += `<text x="${m.l + 6}" y="${n(Y(r.y) - 5)}">${r.label}</text>`;
+  }
+  const mx = X(Math.max(cfg.xMin, Math.min(cfg.xMax, cfg.marker)));
+  s += `<line x1="${n(mx)}" x2="${n(mx)}" y1="${m.t}" y2="${m.t + ih}" stroke="var(--ink)" stroke-width="1" stroke-dasharray="4 3"/>`;
+  for (const q of cfg.series) {
+    let dpath = '';
+    q.values.forEach((v, i) => { dpath += `${i ? 'L' : 'M'}${n(X(cfg.xs[i]))} ${n(Y(v))}`; });
+    s += `<path d="${dpath}" fill="none" stroke="${q.color}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  }
+  for (const pt of cfg.points || []) {
+    if (!Number.isFinite(pt.y)) continue;
+    const px = n(X(pt.x)), e = Number.isFinite(pt.err) ? pt.err : 0;
+    s += `<line x1="${px}" x2="${px}" y1="${n(Y(pt.y - e))}" y2="${n(Y(pt.y + e))}" stroke="${pt.color}" stroke-width="1.5"/>`;
+    s += `<circle cx="${px}" cy="${n(Y(pt.y))}" r="4" fill="${pt.color}" stroke="var(--bg)" stroke-width="2"/>`;
+  }
+  // 현재 위치의 값 표시
+  const frac = (cfg.marker - cfg.xMin) / (cfg.xMax - cfg.xMin);
+  const mi = Math.max(0, Math.min(cfg.xs.length - 1, Math.round(frac * (cfg.xs.length - 1))));
+  for (const q of cfg.series) s += `<circle cx="${n(mx)}" cy="${n(Y(q.values[mi]))}" r="4.5" fill="${q.color}" stroke="var(--bg)" stroke-width="2"/>`;
+  // 선 끝 라벨 (겹치지 않게 밀어냄)
+  const labs = cfg.series.map(q => ({ q, y: Y(q.values[q.values.length - 1]) + 4 })).sort((a, b) => a.y - b.y);
+  for (let i = 1; i < labs.length; i++) labs[i].y = Math.max(labs[i].y, labs[i - 1].y + 15);
+  const maxY = m.t + ih + 4;
+  if (labs.length && labs[labs.length - 1].y > maxY) {
+    labs[labs.length - 1].y = maxY;
+    for (let i = labs.length - 2; i >= 0; i--) labs[i].y = Math.min(labs[i].y, labs[i + 1].y - 15);
+  }
+  for (const l of labs) {
+    s += `<line x1="${m.l + iw + 4}" x2="${m.l + iw + 11}" y1="${n(l.y - 4)}" y2="${n(l.y - 4)}" stroke="${l.q.color}" stroke-width="2.5"/>`;
+    s += `<text class="lab" x="${m.l + iw + 15}" y="${n(l.y)}">${l.q.short}</text>`;
+  }
+  s += `<line class="cross" x1="0" x2="0" y1="${m.t}" y2="${m.t + ih}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+  s += `<rect class="hit" x="${m.l}" y="${m.t}" width="${iw}" height="${ih}" fill="transparent"/></svg>`;
+  host.innerHTML = s;
+
+  const tip = el('div', 'tip'); tip.hidden = true; host.appendChild(tip);
+  const cross = host.querySelector('.cross'), hit = host.querySelector('.hit');
+  const move = ev => {
+    const rect = host.getBoundingClientRect();
+    const px = (ev.clientX - rect.left) * (W / rect.width);
+    const i = Math.max(0, Math.min(cfg.xs.length - 1, Math.round((px - m.l) / iw * (cfg.xs.length - 1))));
+    const cx = X(cfg.xs[i]);
+    cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.setAttribute('visibility', 'visible');
+    tip.textContent = '';
+    tip.appendChild(el('div', 'tx', `${cfg.xLabel}: ${cfg.tick(cfg.xs[i])}`));
+    for (const q of cfg.series) {
+      const row = el('div', 'tr'); const ln = el('i', 'ln'); ln.style.borderColor = q.color;
+      row.append(ln, el('span', null, q.name), el('b', null, q.values[i].toFixed(3)));
+      tip.appendChild(row);
+    }
+    tip.hidden = false;
+    const scale = rect.width / W, tw = tip.offsetWidth;
+    let left = cx * scale + 12;
+    if (left + tw > rect.width) left = cx * scale - tw - 12;
+    tip.style.left = `${Math.max(0, left)}px`;
+  };
+  hit.addEventListener('pointermove', move);
+  hit.addEventListener('pointerdown', move);
+  hit.addEventListener('pointerleave', () => { tip.hidden = true; cross.setAttribute('visibility', 'hidden'); });
+}
+
+/* ───────── 표 ───────── */
+function renderSweepTable() {
+  const ctl = CONTROLS.find(c => c.key === state.sweep), mc = state.mcSweep;
+  const table = $('#sweep-table'); table.textContent = '';
+  const head = el('tr');
+  const cols = [ctl.axis, '성공 확률 P', '충실도 F', '동시성 C', 'CHSH S'];
+  if (multiOn()) cols.push('펄스당 동시계수');
+  if (mc) cols.push('P (실험)', '±', 'F (실험)', '±', 'S (실험)', '±');
+  for (const c of cols) head.appendChild(el('th', null, c));
+  table.appendChild(head);
+  for (let i = 0; i <= N_PTS; i++) {
+    const x = sweepX(i, N_PTS), d = derive({ ...state.p, [state.sweep]: x });
+    const tr = el('tr');
+    const cells = [state.sweep === 'mu' ? x.toFixed(4) : ctl.tick(x), d.P.toFixed(5), d.F.toFixed(4), d.C.toFixed(4), d.S.toFixed(4)];
+    if (multiOn()) cells.push(d.Ppulse.toFixed(6));
+    if (mc) { const r = mc.pts[i].r; cells.push(r.P.toFixed(5), r.sP.toFixed(5), f4(r.F), f4(r.sF), f4(r.S), f4(r.sS)); }
+    for (const c of cells) tr.appendChild(el('td', null, c));
+    table.appendChild(tr);
+  }
+}
+
+function renderMcTable(d) {
+  const table = $('#mc-table'); table.textContent = '';
+  const mc = state.mcCur;
+  const head = el('tr');
+  for (const c of ['측정량', '이론값', '가상 실험', '±1σ', '차이 (σ 단위)']) head.appendChild(el('th', null, c));
+  table.appendChild(head);
+  const rows = [
+    ['성공 확률 P', d.P, mc && mc.r.P, mc && mc.r.sP, 5],
+    ['상관값 E (H/V 기저)', d.Ezz, mc && mc.r.E.zz, mc && mc.r.sE.zz, 4],
+    ['상관값 E (D/A 기저)', d.Exx, mc && mc.r.E.xx, mc && mc.r.sE.xx, 4],
+    ['상관값 E (R/L 기저)', d.Eyy, mc && mc.r.E.yy, mc && mc.r.sE.yy, 4],
+    ['충실도 F', d.F, mc && mc.r.F, mc && mc.r.sF, 4],
+    ['CHSH 값 S', d.S, mc && mc.r.S, mc && mc.r.sS, 4],
+  ];
+  for (const [name, th, ex, se, dig] of rows) {
+    const tr = el('tr');
+    const ok = mc && Number.isFinite(ex);
+    const dev = ok && se > 0 ? ((ex - th) / se).toFixed(1) : '–';
+    for (const c of [name, th.toFixed(dig), ok ? ex.toFixed(dig) : '–', ok ? se.toFixed(dig) : '–', dev]) tr.appendChild(el('td', null, c));
+    table.appendChild(tr);
+  }
+  if (!state.busy) {
+    $('#mc-status').textContent = mc
+      ? `총 ${mc.r.trials.toLocaleString('ko-KR')}회 시행, 동시계수 ${mc.r.coinc.toLocaleString('ko-KR')}건`
+      : '아직 실험하지 않았습니다. 변인을 바꾸면 이전 실험 결과는 지워집니다.';
+  }
+}
+
+/* ───────── 가상 실험 실행 ───────── */
+const pause = () => new Promise(r => setTimeout(r, 0));
+const newSeed = () => (Math.random() * 4294967296) >>> 0;
+function setBusy(b) { state.busy = b; $('#mc-run').disabled = b; $('#mc-sweep').disabled = b; }
+
+async function runCurrent() {
+  if (state.busy) return;
+  const N = parseInt($('#mc-n').value, 10), sig = curSig(), p = { ...state.p };
+  setBusy(true); $('#mc-status').textContent = '실험 중…';
+  await pause();
+  const r = runExperiment(p, N, newSeed());
+  setBusy(false);
+  if (sig === curSig()) state.mcCur = { sig, r };
+  render();
+}
+
+async function runSweep() {
+  if (state.busy) return;
+  const N = Math.min(100000, parseInt($('#mc-n').value, 10)), sig = sweepSig(), p = { ...state.p }, key = state.sweep;
+  setBusy(true);
+  const pts = [];
+  for (let i = 0; i <= N_PTS; i++) {
+    $('#mc-status').textContent = `구간 실험 중… ${i + 1} / ${N_PTS + 1}`;
+    await pause();
+    const x = sweepX(i, N_PTS);
+    pts.push({ x, r: runExperiment({ ...p, [key]: x }, N, newSeed()) });
+  }
+  setBusy(false);
+  if (sig === sweepSig()) state.mcSweep = { sig, pts };
+  render();
+  if (state.mcSweep) $('#mc-status').textContent = `구간 실험 완료: 21개 지점 × 7개 설정 × ${N.toLocaleString('ko-KR')}회. 그래프와 데이터 표에 반영했습니다.`;
+}
+
+async function copyTable() {
+  const table = $('#sweep-table'), status = $('#copy-status');
+  const text = [...table.rows].map(r => [...r.cells].map(c => c.textContent).join('\t')).join('\n');
+  try {
+    await navigator.clipboard.writeText(text);
+    status.textContent = '복사했습니다.';
+  } catch (e) {
+    const range = document.createRange(); range.selectNodeContents(table);
+    const sel = getSelection(); sel.removeAllRanges(); sel.addRange(range);
+    status.textContent = '표를 선택했습니다. Ctrl+C(⌘C)로 복사하세요.';
+  }
+}
+
+if (typeof document !== 'undefined') {
+  buildBench();
+  buildControls();
+  let tab = state.tab;
+  try { const saved = localStorage.getItem('sim-tab'); if (GROUPS.some(g => g.id === saved)) tab = saved; } catch (e) { /* 저장값 없이 시작 */ }
+  setTab(tab);
+  $('#preset-real').addEventListener('click', () => setParams(REAL));
+  $('#preset-spdc').addEventListener('click', () => { setParams(SPDC); setTab('time'); });
+  $('#preset-ideal').addEventListener('click', () => setParams(IDEAL));
+  $('#mc-run').addEventListener('click', runCurrent);
+  $('#mc-sweep').addEventListener('click', runSweep);
+  $('#copy-table').addEventListener('click', copyTable);
+  render();
+  if (!still) requestAnimationFrame(tick);
+  let lastW = 0;
+  new ResizeObserver(() => { const w = $('#chart-1').clientWidth; if (w !== lastW) { lastW = w; renderCharts(); } }).observe($('#chart-1'));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(renderCharts);
+}
+</script>
+</body>
+</html>
