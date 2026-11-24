@@ -90,7 +90,7 @@ h1 { font-size: clamp(30px, 5.2vw, 56px); font-weight: 900; line-height: 1.08; l
 
 /* 실험 장치와 계수기 */
 .rig { display: grid; grid-template-columns: minmax(0, 1fr); border: 1px solid var(--table-edge); }
-@media (min-width: 900px) { .rig { grid-template-columns: minmax(0, 1fr) 292px; } }
+@media (min-width: 900px) { .rig { grid-template-columns: minmax(0, 1fr) 360px; } }
 .bench { background: var(--table); overflow-x: auto; min-width: 0; }
 .bench svg { display: block; width: 100%; min-width: 620px; height: auto; }
 .bench .table { fill: var(--table); }
@@ -114,7 +114,7 @@ h1 { font-size: clamp(30px, 5.2vw, 56px); font-weight: 900; line-height: 1.08; l
 .plate i { width: 7px; height: 7px; border-radius: 50%; background: var(--beam); }
 .readout { display: flex; flex-direction: column; gap: 2px; }
 .readout .lab { font-size: 12.5px; font-weight: 500; color: var(--panel-muted); }
-.readout .val { font-family: var(--font-data); font-weight: 500; font-size: 21px; line-height: 1.25; letter-spacing: -0.04em; }
+.readout .val { font-family: var(--font-data); font-weight: 500; font-size: 24px; line-height: 1.25; letter-spacing: -0.04em; }
 .readout.main { padding-bottom: 16px; border-bottom: 1px solid var(--panel-line); }
 .readout.main .val { font-size: 46px; line-height: 1.1; letter-spacing: -0.06em; }
 .readout .sub { font-size: 12px; color: var(--panel-muted); }
@@ -766,11 +766,11 @@ const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-m
 
 function buildBench() {
   const pulse = id => `<ellipse id="${id}" visibility="hidden" style="stroke:var(--beam);stroke-width:1"/>`;
-  $('#bench').innerHTML = `<svg viewBox="0 0 800 496" role="img" aria-label="위에서 본 실험 장치. 광원 1의 H 편광 광자와 광원 2의 V 편광 광자가 같은 거리를 지나 빔 스플리터에서 만나고, 두 출력이 편광 분석기를 지나 같은 거리에 있는 검출기 c와 d로 간다.">
+  $('#bench').innerHTML = `<svg viewBox="50 -12 700 520" role="img" aria-label="위에서 본 실험 장치. 광원 1의 H 편광 광자와 광원 2의 V 편광 광자가 같은 거리를 지나 빔 스플리터에서 만나고, 두 출력이 편광 분석기를 지나 같은 거리에 있는 검출기 c와 d로 간다.">
 <defs><pattern id="holes" width="25" height="25" patternUnits="userSpaceOnUse"><circle class="hole" cx="12.5" cy="12.5" r="2.1"/></pattern></defs>
-<rect class="table" width="800" height="496"/><rect width="800" height="496" fill="url(#holes)"/>
-<path class="cable" d="M648 248 C708 248 700 160 800 160"/>
-<path class="cable" d="M428 460 C580 460 670 390 800 390"/>
+<rect class="table" x="50" y="-12" width="700" height="520"/><rect x="50" y="-12" width="700" height="520" fill="url(#holes)"/>
+<path class="cable" d="M648 248 C700 248 690 160 750 160"/>
+<path class="cable" d="M428 460 C560 460 650 390 750 390"/>
 <line class="guide" x1="400" y1="58" x2="400" y2="438"/>
 <g id="beams"><line id="b1in"/><line id="b1t"/><line id="b1r"/><line id="b2in"/><line id="b2t"/><line id="b2r"/></g>
 <g id="pulses">${['p1in', 'p1t', 'p1r', 'p2in', 'p2t', 'p2r'].map(pulse).join('')}</g>
