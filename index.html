@@ -758,38 +758,39 @@ function setParams(p) {
 }
 
 /* ───────── 실험 장치 그림 ───────── */
-// 두 광원에서 빔 스플리터까지의 거리를 같게(174) 두어, 동시에 출발한 두 광자가 동시에 도착한다
-const BX = 360, BY = 232, ARM = 174;
+// 광원→빔 스플리터, 빔 스플리터→검출기 네 팔의 길이를 모두 같게(ARM) 둔다.
+// 동시에 출발한 두 광자는 빔 스플리터에 동시에 도착하고, 두 검출기에도 동시에 도착한다.
+const BX = 400, BY = 248, ARM = 190;
 let geom = null;
 const still = typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 function buildBench() {
   const pulse = id => `<ellipse id="${id}" visibility="hidden" style="stroke:var(--beam);stroke-width:1"/>`;
-  $('#bench').innerHTML = `<svg viewBox="0 0 800 464" role="img" aria-label="위에서 본 실험 장치. 광원 1의 H 편광 광자와 광원 2의 V 편광 광자가 같은 거리를 지나 빔 스플리터에서 만나고, 두 출력이 편광 분석기를 지나 검출기 c와 d로 간다.">
+  $('#bench').innerHTML = `<svg viewBox="0 0 800 496" role="img" aria-label="위에서 본 실험 장치. 광원 1의 H 편광 광자와 광원 2의 V 편광 광자가 같은 거리를 지나 빔 스플리터에서 만나고, 두 출력이 편광 분석기를 지나 같은 거리에 있는 검출기 c와 d로 간다.">
 <defs><pattern id="holes" width="25" height="25" patternUnits="userSpaceOnUse"><circle class="hole" cx="12.5" cy="12.5" r="2.1"/></pattern></defs>
-<rect class="table" width="800" height="464"/><rect width="800" height="464" fill="url(#holes)"/>
-<path class="cable" d="M658 232 C716 232 708 150 800 150"/>
-<path class="cable" d="M388 428 C560 428 660 360 800 360"/>
-<line class="guide" x1="360" y1="58" x2="360" y2="406"/>
+<rect class="table" width="800" height="496"/><rect width="800" height="496" fill="url(#holes)"/>
+<path class="cable" d="M648 248 C708 248 700 160 800 160"/>
+<path class="cable" d="M428 460 C580 460 670 390 800 390"/>
+<line class="guide" x1="400" y1="58" x2="400" y2="438"/>
 <g id="beams"><line id="b1in"/><line id="b1t"/><line id="b1r"/><line id="b2in"/><line id="b2t"/><line id="b2r"/></g>
 <g id="pulses">${['p1in', 'p1t', 'p1r', 'p2in', 'p2t', 'p2r'].map(pulse).join('')}</g>
-<g class="hit" data-g="time"><rect class="ring" x="115" y="201" width="78" height="62"/><rect class="part" x="122" y="208" width="64" height="48" rx="2"/></g>
-<text x="154" y="194" text-anchor="middle">광원 1</text><text class="live" x="154" y="280" text-anchor="middle">H 편광 ↔</text><text class="live" id="lv-mu" x="154" y="295" text-anchor="middle"></text>
-<g class="hit" data-g="time"><rect class="ring" x="321" y="7" width="78" height="58"/><rect class="part" x="328" y="14" width="64" height="44" rx="2"/></g>
-<text x="408" y="30">광원 2</text><text class="live" x="408" y="46">V 편광 ⊙</text>
-<text class="live" id="lv-dt" x="312" y="30" text-anchor="end"></text><text class="live" id="lv-dl" x="312" y="46" text-anchor="end"></text>
-<g class="hit" data-g="space"><rect class="ring" x="338" y="72" width="44" height="112"/><line class="grab" x1="360" y1="68" x2="360" y2="190" stroke-width="44"/></g>
-<text class="live" id="lv-dx" x="390" y="122"></text><text class="live" id="lv-dth" x="390" y="138"></text>
-<g class="hit" data-g="bs"><rect class="ring" x="324" y="196" width="72" height="72"/><rect class="glass" x="332" y="204" width="56" height="56"/><line class="coat" x1="332" y1="204" x2="388" y2="260"/></g>
-<text x="318" y="286" text-anchor="end">빔 스플리터</text><text class="live" id="lv-bs" x="318" y="302" text-anchor="end"></text>
-<g class="hit" data-g="phase"><rect class="ring" x="434" y="201" width="24" height="62"/><rect class="glass" x="442" y="208" width="8" height="48"/><rect class="grab" x="432" y="200" width="28" height="64"/></g>
-<text x="446" y="194" text-anchor="middle">위상판</text><text class="live" id="lv-phi" x="446" y="280" text-anchor="middle"></text>
-<rect class="glass" x="512" y="206" width="16" height="52"/><text x="520" y="194" text-anchor="middle">편광 분석기</text>
-<g class="hit" data-g="loss"><rect class="ring" x="593" y="201" width="72" height="62"/><rect class="part" x="600" y="208" width="58" height="48" rx="2"/></g>
-<text x="629" y="194" text-anchor="middle">검출기 c</text><text class="live" id="lv-eta-c" x="629" y="280" text-anchor="middle"></text>
-<rect class="glass" x="334" y="338" width="52" height="16"/><text x="324" y="350" text-anchor="end">편광 분석기</text>
-<g class="hit" data-g="loss"><rect class="ring" x="325" y="399" width="70" height="58"/><rect class="part" x="332" y="406" width="56" height="44" rx="2"/></g>
-<text x="318" y="424" text-anchor="end">검출기 d</text><text class="live" id="lv-eta-d" x="318" y="440" text-anchor="end"></text>
+<g class="hit" data-g="time"><rect class="ring" x="139" y="217" width="78" height="62"/><rect class="part" x="146" y="224" width="64" height="48" rx="2"/></g>
+<text x="178" y="210" text-anchor="middle">광원 1</text><text class="live" x="178" y="296" text-anchor="middle">H 편광 ↔</text><text class="live" id="lv-mu" x="178" y="311" text-anchor="middle"></text>
+<g class="hit" data-g="time"><rect class="ring" x="361" y="7" width="78" height="58"/><rect class="part" x="368" y="14" width="64" height="44" rx="2"/></g>
+<text x="448" y="30">광원 2</text><text class="live" x="448" y="46">V 편광 ⊙</text>
+<text class="live" id="lv-dt" x="352" y="30" text-anchor="end"></text><text class="live" id="lv-dl" x="352" y="46" text-anchor="end"></text>
+<g class="hit" data-g="space"><rect class="ring" x="378" y="72" width="44" height="128"/><line class="grab" x1="400" y1="68" x2="400" y2="206" stroke-width="44"/></g>
+<text class="live" id="lv-dx" x="430" y="128"></text><text class="live" id="lv-dth" x="430" y="144"></text>
+<g class="hit" data-g="bs"><rect class="ring" x="364" y="212" width="72" height="72"/><rect class="glass" x="372" y="220" width="56" height="56"/><line class="coat" x1="372" y1="220" x2="428" y2="276"/></g>
+<text x="358" y="302" text-anchor="end">빔 스플리터</text><text class="live" id="lv-bs" x="358" y="318" text-anchor="end"></text>
+<g class="hit" data-g="phase"><rect class="ring" x="460" y="217" width="24" height="62"/><rect class="glass" x="468" y="224" width="8" height="48"/><rect class="grab" x="458" y="216" width="28" height="64"/></g>
+<text x="472" y="210" text-anchor="middle">위상판</text><text class="live" id="lv-phi" x="472" y="296" text-anchor="middle"></text>
+<rect class="glass" x="522" y="222" width="16" height="52"/><text x="530" y="210" text-anchor="middle">편광 분석기</text>
+<g class="hit" data-g="loss"><rect class="ring" x="583" y="217" width="72" height="62"/><rect class="part" x="590" y="224" width="58" height="48" rx="2"/></g>
+<text x="619" y="210" text-anchor="middle">검출기 c</text><text class="live" id="lv-eta-c" x="619" y="296" text-anchor="middle"></text>
+<rect class="glass" x="374" y="360" width="52" height="16"/><text x="364" y="372" text-anchor="end">편광 분석기</text>
+<g class="hit" data-g="loss"><rect class="ring" x="365" y="431" width="70" height="58"/><rect class="part" x="372" y="438" width="56" height="44" rx="2"/></g>
+<text x="358" y="456" text-anchor="end">검출기 d</text><text class="live" id="lv-eta-d" x="358" y="472" text-anchor="end"></text>
 </svg>`;
   document.querySelectorAll('#bench [data-g]').forEach(n => n.addEventListener('click', () => setTab(n.dataset.g)));
 }
@@ -808,12 +809,12 @@ function updateBench(p, d) {
   const w1 = 3 + 2.4 * p.w1, w2 = Math.min(26, 3 + 2.4 * p.w1 * Math.pow(2, p.wr));
   const dxp = p.dx * 7, a = p.dth / 1000 * 7 * Math.PI / 180;
   const hx = BX + dxp, hy = BY + dxp, ux = Math.sin(a), uy = Math.cos(a);
-  const L2 = (hy - 58) / uy, Lt = (406 - hy) / uy, Lr = (600 - hx) / uy;
+  const L2 = (hy - (BY - ARM)) / uy, Lt = (BY + ARM - hy) / uy, Lr = (BX + ARM - hx) / uy;
   const col2 = `hsl(${(357 + p.dlam * 4).toFixed(0)} 86% var(--beam-l))`;
   const kT = 0.12 + 0.88 * d.T, kR = 0.12 + 0.88 * d.R;
   setLine('b1in', BX - ARM, BY, BX, BY, w1, op);
-  setLine('b1t', BX, BY, 600, BY, w1, op * kT);
-  setLine('b1r', BX, BY, BX, 406, w1, op * kR);
+  setLine('b1t', BX, BY, BX + ARM, BY, w1, op * kT);
+  setLine('b1r', BX, BY, BX, BY + ARM, w1, op * kR);
   setLine('b2in', hx - ux * L2, hy - uy * L2, hx, hy, w2, op, col2);
   setLine('b2t', hx, hy, hx + ux * Lt, hy + uy * Lt, w2, op * kT, col2);
   setLine('b2r', hx, hy, hx + uy * Lr, hy + ux * Lr, w2, op * kR, col2);
@@ -845,13 +846,13 @@ function drawPulses(q) {
   const q2 = q - g.dtp, r1 = g.w1 / 2 + 1.5, r2 = g.w2 / 2 + 1.5;
   const aDeg = Math.atan2(g.ux, g.uy) * 180 / Math.PI;
   setPulse('p1in', q < 0 && q > 4 - ARM, BX + q, BY, 0, g.tc, r1, 0.95);
-  setPulse('p1t', q >= 0 && q < 236, BX + q, BY, 0, g.tc, r1, 0.95 * g.kT);
+  setPulse('p1t', q >= 0 && q < ARM - 4, BX + q, BY, 0, g.tc, r1, 0.95 * g.kT);
   setPulse('p1r', q >= 0 && q < ARM - 4, BX, BY + q, 90, g.tc, r1, 0.95 * g.kR);
   setPulse('p2in', q2 < 0 && q2 > 4 - g.L2, g.hx + g.ux * q2, g.hy + g.uy * q2, 90 - aDeg, g.tc, r2, 0.95);
   setPulse('p2t', q2 >= 0 && q2 < g.Lt - 4, g.hx + g.ux * q2, g.hy + g.uy * q2, 90 - aDeg, g.tc, r2, 0.95 * g.kT);
   setPulse('p2r', q2 >= 0 && q2 < g.Lr - 4, g.hx + g.uy * q2, g.hy + g.ux * q2, aDeg, g.tc, r2, 0.95 * g.kR);
 }
-function tick(t) { drawPulses(-200 + ((t / 3000) % 1) * 460); requestAnimationFrame(tick); }
+function tick(t) { drawPulses(-215 + ((t / 3000) % 1) * 430); requestAnimationFrame(tick); }
 
 /* ───────── 결과 표시 ───────── */
 const fmtP = v => v >= 0.0001 ? `${(v * 100).toFixed(v >= 0.1 ? 1 : 2)}%` : v > 0 ? `${(v * 100).toExponential(1)}%` : '0%';
